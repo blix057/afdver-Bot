@@ -78,6 +78,17 @@ MONGODB_URI=your_mongodb_connection_uri_here
 
 ## Nutzung
 
+MongoDB-URI finden (MongoDB Atlas):
+1. Auf https://cloud.mongodb.com in dein Projekt/Cluster wechseln
+2. Button „Connect“ > „Drivers“ auswählen
+3. Verbindungstyp „Node.js“ oder „Python“ – die URI beginnt mit mongodb+srv://<user>:<pass>@<cluster>/
+4. Benutzer anlegen und Passwort setzen (Database Access), IP-Zugriff erlauben (Network Access)
+5. Diese URI als MONGODB_URI in `.env` bzw. in den Vercel-Umgebungsvariablen hinterlegen
+
+MongoDB-URI lokal (Community Server):
+- Standard: mongodb://localhost:27017
+- Dann ggf. `afdver_bot`-Datenbank wird automatisch verwendet
+
 Wenn `MONGODB_URI` gesetzt ist, werden aus den markierten Tweets alle erkannten URLs extrahiert und dedupliziert in der Datenbank gespeichert. Ohne MongoDB läuft der Bot weiterhin und erzeugt lokale Berichte.
 
 ### Basisbeispiele
@@ -150,6 +161,21 @@ Die Schlagwörter sind an verfassungsrelevanten Aspekten (Art. 21 Abs. 2 GG) ori
 - Muster von Hassrede
 
 ## Technische Details
+
+### Einfache Web-Ansicht (Vercel)
+
+Im Ordner `web/` liegt eine minimale Web-App für Vercel:
+- `web/index.html`: Liste der gespeicherten Links mit Kurztext
+- `web/api/links.js`: Serverless-API, liest aus MongoDB (MONGODB_URI)
+- `web/package.json`: Abhängigkeit `mongodb`
+
+Deployment (kurz):
+1. Repo bei Vercel importieren
+2. In den Vercel-Projekteinstellungen Umgebungsvariable `MONGODB_URI` setzen
+3. Build ist nicht nötig (statisch + Serverless)
+4. Deploy – die Seite zeigt die zuletzt gespeicherten Links an
+
+Hinweis: Die Web-App greift nur lesend auf die Linksammlung zu. Die Erfassung passiert weiterhin durch den Bot.
 
 ### Deduplizierung & Zusammenarbeit
 

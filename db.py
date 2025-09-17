@@ -88,6 +88,8 @@ class LinkStore:
                 "matched_keywords": tweet_analysis.get("matched_keywords", []),
                 "source_account": tweet_analysis.get("source_account"),
                 "collection_method": tweet_analysis.get("collection_method"),
+                # Optional short description from tweet text
+                "tweet_text": tweet_analysis.get("text", ""),
             }
             if self.upsert_link(url, metadata):
                 count += 1
