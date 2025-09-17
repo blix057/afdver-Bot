@@ -1,252 +1,219 @@
-# AfD Twitter Monitoring Bot
+# AfD-Twitter-Monitoring-Bot
 
-An automated system for monitoring Alternative für Deutschland (AfD) social media content for potential constitutional concerns based on Article 21(2) of the German Basic Law.
+Ein automatisiertes System zur Beobachtung öffentlicher Inhalte der Alternative für Deutschland (AfD) auf X/Twitter. Es analysiert Tweets auf mögliche verfassungsrelevante Hinweise im Sinne von Art. 21 Abs. 2 Grundgesetz (GG) und erstellt strukturierte Berichte mit Links und Kurzsummaries. Optional werden gefundene Links (Quellen) in einer MongoDB gespeichert, um sie über mehrere Nutzer hinweg zu deduplizieren.
 
-## Overview
+## Überblick
 
-This bot monitors official AfD Twitter accounts at federal and state levels, analyzing public content for keywords and patterns that may indicate constitutional concerns. The analysis is based on Germany's legal framework for party bans and generates structured reports for further review.
+Der Bot überwacht offizielle AfD-Accounts auf Bundes- und Landesebene und durchsucht deren öffentliche Tweets nach Schlagwörtern und Mustern, die auf verfassungsrechtlich relevante Aspekte hindeuten könnten. Die Kriterien orientieren sich am rechtlichen Rahmen für Parteiverbote in Deutschland. Ergebnisse werden in einem Textbericht zusammengefasst; optional werden erkannte Links in einer Datenbank festgehalten (ohne Duplikate).
 
-## Legal Disclaimer
+## Rechtlicher Hinweis
 
-⚠️ **IMPORTANT**: This is an automated analysis tool for research and informational purposes only. It does not constitute legal evidence or professional legal assessment. Only the Federal Constitutional Court of Germany can determine party unconstitutionality.
+⚠️ WICHTIG: Dieses Projekt ist ein automatisiertes Analyse- und Forschungswerkzeug. Es ist weder eine juristische Begutachtung noch ein Beweismittel. Eine verfassungsrechtliche Bewertung von Parteien obliegt ausschließlich dem Bundesverfassungsgericht. Ergebnisse sollten unabhängig geprüft und stets im Kontext betrachtet werden.
 
-## Features
+## Funktionen
 
-- **Account Monitoring**: Tracks tweets from official AfD accounts at federal and state levels
-- **Keyword Analysis**: Searches for constitutionally relevant terms and phrases
-- **Severity Scoring**: Assigns severity scores based on content analysis
-- **Content Categorization**: Groups findings into constitutional concern categories
-- **Comprehensive Reports**: Generates detailed text reports with links and summaries
-- **Rate Limiting**: Respects Twitter API rate limits and terms of service
-- **Ethical Constraints**: Built with transparency and legal compliance in mind
+- Account-Monitoring: Überwachung offizieller AfD-Accounts (Bund/Länder)
+- Schlagwort-Analyse: Suche nach verfassungsrelevanten Begriffen und Phrasen
+- Schweregrad-Scoring: 0–10 basierend auf Trefferanzahl und Kategoriegewichtung
+- Inhaltskategorien: Einordnung u. a. in anti-demokratisch, Gewaltbefürwortung, u. a.
+- Berichte: Ausführliche Textberichte mit Links, Kategorien, Metriken und Kurzsummary
+- Ratenbegrenzung: Beachtung der API-Limits von X/Twitter
+- Optionale MongoDB-Anbindung: Kollaboratives, dedupliziertes Link-Repository
 
-## Requirements
+## Voraussetzungen
 
-- Python 3.8 or higher
-- Twitter API v2 access (Bearer Token + OAuth 1.0a credentials)
-- Required Python packages (see `requirements.txt`)
-- Optional: MongoDB Atlas account (for shared, de-duplicated link storage)
+- Python 3.8 oder höher
+- Zugang zu Twitter/X API v2 (Bearer Token + OAuth 1.0a)
+- Python-Abhängigkeiten (siehe `requirements.txt`)
+- Optional: MongoDB (z. B. MongoDB Atlas) für gemeinsame, deduplizierte Link-Speicherung
 
-## Setup
+## Einrichtung
 
-### 1. Twitter API Access
+### 1) Twitter/X API-Zugang beschaffen
 
-How to get a Twitter (X) API key:
-1. Go to https://developer.twitter.com and sign in.
-2. Apply for a developer account and create a Project + App.
-3. In your App, generate:
-   - API Key and API Secret
+So erhältst du API-Schlüssel:
+1. Auf https://developer.twitter.com anmelden
+2. Entwicklerzugang beantragen und ein Project + App anlegen
+3. In der App generieren:
+   - API Key und API Secret
    - Bearer Token
-   - Access Token and Access Token Secret
-4. Copy these into your .env file as shown below.
+   - Access Token und Access Token Secret
+4. Diese Werte in die `.env` eintragen (siehe unten)
 
-You need Twitter API credentials:
+### 2) Abhängigkeiten installieren
 
-1. Apply for Twitter API access at [developer.twitter.com](https://developer.twitter.com)
-2. Create a new app and generate:
-   - Bearer Token
-   - API Key and Secret
-   - Access Token and Secret
-
-### 2. Install Dependencies
-
-Create and activate a virtual environment (recommended):
+Virtuelle Umgebung (empfohlen):
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 ```
+
+Dann Pakete installieren:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure Credentials
+### 3) Umgebungsvariablen konfigurieren
 
-1. Copy the environment template:
+1. Vorlage kopieren:
 ```bash
 cp .env.template .env
 ```
 
-2. Edit `.env` and add your Twitter API credentials (and optionally MongoDB):
+2. `.env` bearbeiten und Twitter/X-API-Daten (und optional MongoDB) setzen:
 ```env
-# Twitter
+# Twitter/X
 TWITTER_BEARER_TOKEN=your_bearer_token_here
 TWITTER_API_KEY=your_api_key_here
 TWITTER_API_SECRET=your_api_secret_here
 TWITTER_ACCESS_TOKEN=your_access_token_here
 TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret_here
 
-# MongoDB (optional but recommended for collaborative de-duplication)
-# Example (MongoDB Atlas): mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=majority
+# MongoDB (optional, empfohlen für gemeinsame Deduplizierung)
+# Beispiel (MongoDB Atlas): mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=majority
 MONGODB_URI=your_mongodb_connection_uri_here
 ```
 
-## Usage
+## Nutzung
 
-If MongoDB is configured (MONGODB_URI set), URLs from flagged tweets will be stored de-duplicated in the database. If not, the bot still runs and outputs a local report.
+Wenn `MONGODB_URI` gesetzt ist, werden aus den markierten Tweets alle erkannten URLs extrahiert und dedupliziert in der Datenbank gespeichert. Ohne MongoDB läuft der Bot weiterhin und erzeugt lokale Berichte.
 
-### Basic Usage
+### Basisbeispiele
 
-Run full analysis (accounts + keywords):
+Vollständige Analyse (Accounts + Schlagwörter):
 ```bash
 python main.py
 ```
 
-### Command Line Options
+### Kommandozeilen-Optionen
 
-- `--accounts-only`: Only search AfD accounts (skip keyword search)
-- `--keywords-only`: Only search by keywords (skip account search)
-- `--output-dir PATH`: Directory to save reports (default: ./reports)
-- `--verbose`: Enable verbose logging
-- `--dry-run`: Perform analysis without generating report
+- `--accounts-only`: Nur AfD-Accounts durchsuchen (ohne Schlagwortsuche)
+- `--keywords-only`: Nur per Schlagwörtern suchen (ohne Accountsuche)
+- `--output-dir PATH`: Verzeichnis für Berichte (Standard: `./reports`)
+- `--verbose`: Ausführliches Logging aktivieren
+- `--dry-run`: Analyse ohne Berichtserzeugung
 
-MongoDB is automatically detected from MONGODB_URI. No extra flags needed.
+MongoDB wird automatisch über `MONGODB_URI` erkannt – keine zusätzlichen Flags nötig.
 
-- `--accounts-only`: Only search AfD accounts (skip keyword search)
-- `--keywords-only`: Only search by keywords (skip account search)  
-- `--output-dir PATH`: Directory to save reports (default: ./reports)
-- `--verbose`: Enable verbose logging
-- `--dry-run`: Perform analysis without generating report
-
-### Examples
+### Beispiele
 
 ```bash
-# Full analysis with verbose logging
+# Vollanalyse mit ausführlichem Logging
 python main.py --verbose
 
-# Only search AfD accounts
+# Nur AfD-Accounts durchsuchen
 python main.py --accounts-only
 
-# Only search by keywords
+# Nur nach Schlagwörtern suchen
 python main.py --keywords-only
 
-# Dry run to test without generating report
+# Testlauf ohne Bericht
 python main.py --dry-run
 
-# Save reports to custom directory
-python main.py --output-dir /path/to/reports
+# Berichte in benutzerdefiniertem Pfad speichern
+python main.py --output-dir /pfad/zu/reports
 ```
 
-## Output
+## Ausgabe
 
-The bot generates comprehensive text reports including:
+Der Bot erzeugt strukturierte Textberichte mit:
 
-- **Executive Summary**: Overview of findings and statistics
-- **Detailed Findings**: Individual tweets with analysis and URLs
-- **Statistical Analysis**: Collection metrics and patterns
-- **Methodology**: Explanation of analysis methods
-- **Legal Context**: Relevant constitutional law information
+- Executive Summary: Überblick über Treffer und Statistiken
+- Detaillierte Befunde: Einzelne Tweets mit URL, Kategorien, Keywords, Metriken
+- Statistische Auswertung: Such- und Sammlungsmetriken, Verteilungen
+- Methodik: Beschreibung des Analyseverfahrens
+- Rechtlicher Kontext: Hinweise zu Art. 21 Abs. 2 GG
 
-Reports are saved as timestamped text files in the `reports/` directory.
+Berichte werden mit Zeitstempel im Verzeichnis `reports/` gespeichert.
 
-## Configuration
+## Konfiguration
 
-Key configuration files:
+Wichtige Dateien:
 
-- `config.py`: AfD accounts list and constitutional keywords
-- `requirements.txt`: Python dependencies
-- `.env`: Twitter API credentials (create from template)
+- `config.py`: Liste der AfD-Accounts, Schlagwörter, Sucheinstellungen
+- `requirements.txt`: Python-Abhängigkeiten
+- `.env`: API-Zugangsdaten (aus Vorlage erstellen)
 
-### Monitored Accounts
+### Beobachtete Accounts
 
-The bot monitors these official AfD accounts:
+Der Bot enthält eine Auswahl offizieller AfD-Accounts (Bund/Länder). Diese Liste kann in `config.py` erweitert oder angepasst werden.
 
-**Federal Level:**
-- @AfD (main party account)
-- @Alice_Weidel (party leader)
-- @Tino_Chrupalla (party leader)
-- @AfDimBundestag (parliamentary group)
+### Analyse-Schlagwörter
 
-**State Level:**
-All 16 German states' official AfD accounts
+Die Schlagwörter sind an verfassungsrelevanten Aspekten (Art. 21 Abs. 2 GG) orientiert, u. a.:
+- Angriffe auf die freiheitlich-demokratische Grundordnung
+- Anti-verfassungsrechtliche Rhetorik
+- Geschichtsrevisionismus
+- Befürwortung von Gewalt
+- Muster von Hassrede
 
-### Analysis Keywords
+## Technische Details
 
-Keywords are based on constitutional concerns from Article 21(2) GG:
-- Threats to democratic basic order
-- Anti-constitutional rhetoric
-- Historical revisionism
-- Violence promotion
-- Hate speech patterns
+### Deduplizierung & Zusammenarbeit
 
-## Technical Details
+- Mit MongoDB werden alle in markierten Tweets erkannten URLs einmalig gespeichert
+- Ein eindeutiger Index auf `url` verhindert Duplikate – auch über mehrere Nutzer/Maschinen
+- So können viele Nutzer parallel beitragen, ohne doppelte Quellen zu sammeln
+- Ohne MongoDB arbeitet der Bot lokal weiter (nur Berichtsausgabe)
 
-### De-duplication and Collaboration
+### Architektur
 
-- When MongoDB is configured, every URL found in flagged tweets is extracted and stored once in the shared database.
-- A unique index on the URL ensures the same link is never stored twice, even across machines/users.
-- This lets multiple users run the bot and contribute to a common evidence set without duplicates.
-- MongoDB is optional; the bot still runs and generates local reports without it.
+- `twitter_client.py`: API-Client inkl. Rate-Limits
+- `content_analyzer.py`: Schlagworterkennung, Kategorisierung, Schweregrad
+- `tweet_collector.py`: Datensammlung aus Accounts/Schlagworten
+- `report_generator.py`: Berichtsgenerierung (.txt)
+- `main.py`: CLI und Orchestrierung
+- `config.py`: Einstellungen (Accounts, Keywords, Parameter)
 
-### Architecture
+### Ratenbegrenzung
 
-- `twitter_client.py`: Twitter API interface with rate limiting
-- `content_analyzer.py`: Keyword matching and severity scoring
-- `tweet_collector.py`: Orchestrates data collection from accounts/keywords
-- `report_generator.py`: Formats findings into structured reports
-- `main.py`: Command-line interface and execution logic
-- `config.py`: Configuration data (accounts, keywords, settings)
+- Automatisches Warten bei Limits (API-konform)
+- Konfigurierbare Pausen zwischen Anfragen
+- Beachtung von Quoten und Grenzwerten
 
-### Rate Limiting
+### Ethische Hinweise
 
-The bot includes comprehensive rate limiting to comply with Twitter's API terms:
-- Automatic retry with exponential backoff
-- Configurable delays between requests
-- Respects API quotas and limits
-
-### Ethical Considerations
-
-- Only analyzes publicly available content
-- Transparent methodology and limitations
-- Clear disclaimers about automated analysis
-- Respects platform terms of service
-- Focuses on constitutional law compliance
+- Analyse ausschließlich öffentlicher Inhalte
+- Transparente Methodik und Limitierungen
+- Deutliche Hinweise auf den nicht-juristischen Charakter
+- Beachtung der Plattform-AGB
 
 ## Logging
 
-Logs are saved to the `logs/` directory with timestamps. Use `--verbose` for detailed debugging information.
+Logs werden im Verzeichnis `logs/` mit Zeitstempel abgelegt. Mit `--verbose` erhältst du detaillierte Debug-Informationen.
 
 ## Troubleshooting
 
-### Common Issues
+Häufige Probleme:
+1. "Missing Twitter API credentials"
+   - Prüfe, ob `.env` existiert und gültige Werte enthält
+   - Stelle sicher, dass alle benötigten Variablen gesetzt sind
+2. Rate-Limit-Fehler
+   - Der Bot geht automatisch damit um
+   - Ggf. Suchparameter reduzieren
+3. Keine Tweets gefunden
+   - Prüfen, ob Accounts aktiv sind und API-Zugriff korrekt ist
 
-1. **"Missing Twitter API credentials"**
-   - Ensure your `.env` file exists and contains valid credentials
-   - Check that all required environment variables are set
+## Rechtlicher Rahmen
 
-2. **Rate limit errors**
-   - The bot handles rate limits automatically
-   - Consider reducing search parameters if issues persist
+Art. 21 Abs. 2 GG (Auszug):
 
-3. **No tweets found**
-   - Check that the monitored accounts are still active
-   - Verify your API access permissions
+> "Parteien, die nach ihren Zielen oder nach dem Verhalten ihrer Anhänger darauf ausgehen, die freiheitliche demokratische Grundordnung zu beeinträchtigen oder zu beseitigen oder den Bestand der Bundesrepublik Deutschland zu gefährden, sind verfassungswidrig."
 
-### Support
-
-This is a research tool. For technical issues:
-1. Check the logs in the `logs/` directory
-2. Verify your Twitter API credentials and permissions
-3. Ensure all dependencies are installed correctly
-
-## Legal Framework
-
-Based on Article 21(2) of the German Basic Law (Grundgesetz):
-
-> "Parties that, by reason of their aims or the behavior of their members, seek to undermine or abolish the free democratic basic order or to endanger the existence of the Federal Republic of Germany shall be unconstitutional."
-
-The analysis focuses on identifying content that may indicate:
-1. Active opposition to democratic principles
-2. Plans to undermine constitutional order
-3. Sufficient weight to pose a real threat to democracy
+Die Analyse zielt darauf ab, Inhalte zu identifizieren, die möglichweise auf:
+1. aktive Gegnerschaft zur FDGO,
+2. Pläne zur Unterminierung der Verfassungsordnung oder
+3. ausreichende Bedeutung zur tatsächlichen Gefährdung
+hindeuten könnten.
 
 ## Disclaimer
 
-This tool is provided for research and educational purposes. Users are responsible for:
-- Compliance with applicable laws and regulations
-- Proper interpretation of automated analysis results
-- Verification of findings through appropriate legal channels
-- Respecting privacy and data protection requirements
+Dieses Tool dient Forschungs- und Demonstrationszwecken. Nutzer sind verantwortlich für:
+- Einhaltung geltender Gesetze und Vorschriften
+- Sorgfältige Einordnung automatisierter Ergebnisse
+- Unabhängige Verifikation der Befunde über geeignete Kanäle
+- Beachtung von Datenschutz und Persönlichkeitsrechten
 
-The automated analysis may contain false positives and should not be used as the sole basis for any legal or political decisions.
+Automatisierte Analysen können Fehlklassifikationen enthalten und dürfen nicht alleinige Grundlage rechtlicher oder politischer Entscheidungen sein.
