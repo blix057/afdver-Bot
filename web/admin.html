@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AfD Bot System - Admin Panel</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            margin: 0; padding: 20px; background: #f5f5f5; color: #333;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #2c3e50; margin-bottom: 30px; }
+        
+        .auth-section {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .auth-section input {
+            width: 100%; padding: 10px; border: 1px solid #ddd;
+            border-radius: 4px; margin-bottom: 10px;
+        }
+        .auth-section button {
+            background: #3498db; color: white; padding: 10px 20px;
+            border: none; border-radius: 4px; cursor: pointer;
+        }
+        .auth-section button:hover { background: #2980b9; }
+        
+        .admin-content { display: none; }
+        
+        .register-form {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .register-form h2 { margin-top: 0; color: #2c3e50; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group textarea {
+            width: 100%; padding: 10px; border: 1px solid #ddd;
+            border-radius: 4px; font-size: 14px;
+        }
+        .form-group textarea { height: 80px; resize: vertical; }
+        
+        .btn-primary {
+            background: #27ae60; color: white; padding: 12px 24px;
+            border: none; border-radius: 4px; cursor: pointer;
+            font-size: 16px; font-weight: 500;
+        }
+        .btn-primary:hover { background: #229954; }
+        
+        .success, .error {
+            padding: 15px; border-radius: 4px; margin: 15px 0;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .token-display {
+            background: #f8f9fa; padding: 15px; border-radius: 4px;
+            border-left: 4px solid #007bff; margin: 15px 0;
+            font-family: monospace; word-break: break-all;
+        }
+        
+        .instructions {
+            background: #fff3cd; color: #856404; padding: 15px;
+            border-radius: 4px; border: 1px solid #ffeaa7; margin: 15px 0;
+        }
+        .instructions h3 { margin-top: 0; }
+        .instructions code {
+            background: #f8f9fa; padding: 2px 6px;
+            border-radius: 3px; font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 AfD Bot System - Admin Panel</h1>
+        
+        <!-- Authentication -->
+        <div class="auth-section" id="auth-section">
+            <h2>Admin Authentication</h2>
+            <input type="password" id="admin-secret" placeholder="Admin Secret Token">
+            <button onclick="authenticate()">Login</button>
+            <div id="auth-error" class="error" style="display: none;"></div>
+        </div>
+        
+        <!-- Admin Content -->
+        <div class="admin-content" id="admin-content">
+            
+            <!-- Bot Registration -->
+            <div class="register-form">
+                <h2>🤖 Register New Bot</h2>
+                <form onsubmit="registerBot(event)">
+                    <div class="form-group">
+                        <label for="bot-name">Bot Name</label>
+                        <input type="text" id="bot-name" required 
+                               placeholder="e.g., PaulBot, UniversityBot, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label for="owner">Owner</label>
+                        <input type="text" id="owner" required 
+                               placeholder="Name or email of bot operator">
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description (Optional)</label>
+                        <textarea id="description" 
+                                  placeholder="Brief description of the bot instance"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Register Bot</button>
+                </form>
+                
+                <div id="register-result"></div>
+            </div>
+            
+            <!-- Setup Instructions -->
+            <div class="instructions">
+                <h3>📋 Bot Setup Instructions</h3>
+                <ol>
+                    <li><strong>Deploy Vercel App:</strong> Deploy this app to Vercel with MongoDB credentials</li>
+                    <li><strong>Register Bot:</strong> Use the form above to create a unique token for each bot instance</li>
+                    <li><strong>Configure Bot:</strong> Set the bot's <code>.env</code> file:
+                        <div class="token-display">
+INGEST_URL=https://your-vercel-app.vercel.app/api/ingest<br>
+INGEST_TOKEN=your_generated_token_here
+                        </div>
+                    </li>
+                    <li><strong>Update Vercel Environment:</strong> Add the new token to <code>VALID_TOKENS</code> in Vercel dashboard (comma-separated)</li>
+                    <li><strong>Run Bot:</strong> The bot will now upload all collected links to your centralized system</li>
+                </ol>
+            </div>
+            
+            <!-- Environment Variable Helper -->
+            <div class="register-form">
+                <h2>📝 Required Vercel Environment Variables</h2>
+                <div class="token-display">
+# Required for the system to work:<br>
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority<br>
+MONGODB_DB=afdver_bot<br>
+MONGODB_COLLECTION=links<br>
+ADMIN_SECRET=your_secret_admin_token_here<br>
+VALID_TOKENS=bot1.token1,bot2.token2,bot3.token3<br>
+                </div>
+                <p><strong>Note:</strong> Update <code>VALID_TOKENS</code> each time you register a new bot by adding the token to the comma-separated list.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminToken = '';
+        
+        function authenticate() {
+            const secret = document.getElementById('admin-secret').value;
+            if (!secret) {
+                showAuthError('Please enter admin secret');
+                return;
+            }
+            
+            adminToken = secret;
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('admin-content').style.display = 'block';
+        }
+        
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('auth-error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        async function registerBot(event) {
+            event.preventDefault();
+            
+            const botName = document.getElementById('bot-name').value;
+            const owner = document.getElementById('owner').value;
+            const description = document.getElementById('description').value;
+            const resultDiv = document.getElementById('register-result');
+            
+            try {
+                const response = await fetch('/api/register-bot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({
+                        botName,
+                        owner,
+                        description
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Bot registered successfully!</h3>
+                            <p><strong>Bot ID:</strong> ${result.botId}</p>
+                            <div class="token-display">
+                                <strong>Generated Token:</strong><br>
+                                ${result.token}
+                            </div>
+                            <p><strong>Next steps:</strong></p>
+                            <ol>
+                                <li>Add this token to your Vercel <code>VALID_TOKENS</code> environment variable</li>
+                                <li>Configure the bot's <code>.env</code> file with <code>INGEST_TOKEN=${result.token}</code></li>
+                                <li>The bot can now upload data to your centralized system</li>
+                            </ol>
+                        </div>
+                    `;
+                    
+                    // Clear form
+                    document.getElementById('bot-name').value = '';
+                    document.getElementById('owner').value = '';
+                    document.getElementById('description').value = '';
+                    
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>Error:</strong> ${result.error || 'Registration failed'}
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

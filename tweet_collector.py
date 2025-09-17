@@ -7,7 +7,7 @@ from datetime import datetime
 from twitter_client import TwitterClient
 from content_analyzer import ContentAnalyzer
 from config import AFD_ACCOUNTS, CONSTITUTIONAL_KEYWORDS, SEARCH_SETTINGS
-from db import LinkStore
+# from db import LinkStore  # No longer needed - using HTTP ingest only
 
 class TweetCollector:
     """
@@ -20,12 +20,12 @@ class TweetCollector:
         self.content_analyzer = ContentAnalyzer()
         self.accounts = AFD_ACCOUNTS
         self.search_settings = SEARCH_SETTINGS
-        # Initialize DB link store if configured
-        try:
-            self.link_store = LinkStore()
-        except Exception as e:
-            self.logger.warning(f"LinkStore disabled (no MongoDB configured): {e}")
-            self.link_store = None
+        # HTTP ingest configuration
+        self.ingest_url = os.getenv('INGEST_URL')
+        self.ingest_token = os.getenv('INGEST_TOKEN')
+        
+        if not self.ingest_url or not self.ingest_token:
+            self.logger.warning("HTTP ingest not configured (INGEST_URL and/or INGEST_TOKEN missing). Links will not be stored.")
         
     def collect_from_accounts(self) -> List[Dict]:
         """
@@ -241,47 +241,56 @@ class TweetCollector:
 
     def _store_links(self, flagged_tweets: List[Dict]) -> int:
         """
-        Store links either directly to MongoDB (if available) or via HTTP ingest endpoint.
+        Store links via HTTP ingest endpoint to centralized system.
         Returns number of new links inserted, or None if no storage configured.
         """
-        # Prefer direct DB if available
-        if getattr(self, 'link_store', None):
+        if not self.ingest_url or not self.ingest_token:
+            self.logger.warning("No HTTP ingest configured. Links not persisted.")
+            return None
+        
+        inserted = 0
+        headers = {
+            'Authorization': f'Bearer {self.ingest_token}', 
+            'Content-Type': 'application/json'
+        }
+        
+        for ta in flagged_tweets:
             try:
-                new_links = 0
-                for ta in flagged_tweets:
-                    new_links += self.link_store.store_from_tweet_analysis(ta)
-                return new_links
+                payload = {
+                    'tweet_id': ta.get('tweet_id'),
+                    'author_id': ta.get('author_id'),
+                    'created_at': ta.get('created_at').isoformat() if hasattr(ta.get('created_at'), 'isoformat') else ta.get('created_at'),
+                    'severity_score': ta.get('severity_score'),
+                    'categories': ta.get('categories', []),
+                    'matched_keywords': ta.get('matched_keywords', []),
+                    'source_account': ta.get('source_account'),
+                    'collection_method': ta.get('collection_method'),
+                    'tweet_text': ta.get('text', ''),
+                }
+                
+                response = requests.post(
+                    self.ingest_url, 
+                    headers=headers, 
+                    json=payload, 
+                    timeout=15
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    inserted += result.get('inserted', 0)
+                elif response.status_code == 429:
+                    self.logger.warning(f"Rate limited by ingest API, will retry later")
+                    # Could implement exponential backoff here
+                    time.sleep(2)
+                else:
+                    self.logger.debug(f"Ingest failed with status {response.status_code}: {response.text[:200]}")
+                    
+            except requests.exceptions.Timeout:
+                self.logger.warning(f"Ingest request timeout for tweet {ta.get('tweet_id')}")
+            except requests.exceptions.ConnectionError:
+                self.logger.error(f"Cannot connect to ingest API at {self.ingest_url}")
+                break  # Stop trying if we can't connect
             except Exception as e:
-                self.logger.warning(f"Direct DB storage failed, will try HTTP ingest if configured: {e}")
+                self.logger.debug(f"Ingest error for tweet {ta.get('tweet_id')}: {e}")
         
-        # HTTP ingest fallback
-        ingest_url = os.getenv('INGEST_URL')
-        ingest_token = os.getenv('INGEST_TOKEN')
-        if ingest_url and ingest_token:
-            inserted = 0
-            headers = {'Authorization': f'Bearer {ingest_token}', 'Content-Type': 'application/json'}
-            for ta in flagged_tweets:
-                # Extract URLs similarly to DB layer to avoid duplication
-                try:
-                    payload = {
-                        'tweet_id': ta.get('tweet_id'),
-                        'author_id': ta.get('author_id'),
-                        'created_at': ta.get('created_at').isoformat() if hasattr(ta.get('created_at'), 'isoformat') else ta.get('created_at'),
-                        'severity_score': ta.get('severity_score'),
-                        'categories': ta.get('categories', []),
-                        'matched_keywords': ta.get('matched_keywords', []),
-                        'source_account': ta.get('source_account'),
-                        'collection_method': ta.get('collection_method'),
-                        'tweet_text': ta.get('text', ''),
-                    }
-                    r = requests.post(ingest_url, headers=headers, json=payload, timeout=10)
-                    if r.status_code == 200:
-                        inserted += r.json().get('inserted', 0)
-                    else:
-                        self.logger.debug(f"Ingest failed with status {r.status_code}: {r.text}")
-                except Exception as e:
-                    self.logger.debug(f"Ingest error: {e}")
-            return inserted
-        
-        self.logger.warning("No storage configured (no MongoDB and no INGEST_URL). Links not persisted.")
-        return None
+        return inserted

@@ -1,87 +1,332 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AfD Monitoring – Links Übersicht</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AfD Twitter Bot - Link Collection Dashboard</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; color: #111; }
-      header { margin-bottom: 1.5rem; }
-      .note { color: #555; font-size: 0.95rem; }
-      .list { display: grid; grid-template-columns: 1fr; gap: 12px; }
-      .item { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
-      .url { font-weight: 600; word-break: break-all; }
-      .meta { color: #555; font-size: 0.9rem; margin-top: 6px; }
-      .text { margin-top: 8px; white-space: pre-wrap; }
-      footer { margin-top: 2rem; color: #666; font-size: 0.85rem; }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            margin: 0; padding: 20px; background: #f5f5f5; color: #333;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #2c3e50; margin-bottom: 30px; }
+        
+        .stats { 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;
+        }
+        .stat-number { font-size: 2em; font-weight: bold; color: #3498db; }
+        .stat-label { color: #666; margin-top: 5px; }
+        
+        .filters {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .filters input, .filters select {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;
+            margin: 5px; font-size: 14px;
+        }
+        .filters button {
+            background: #3498db; color: white; padding: 8px 16px;
+            border: none; border-radius: 4px; cursor: pointer; margin: 5px;
+        }
+        .filters button:hover { background: #2980b9; }
+        
+        .links-container {
+            background: white; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;
+        }
+        .link-item {
+            border-bottom: 1px solid #eee; padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        .link-item:last-child { border-bottom: none; }
+        .link-item:hover { background: #f8f9fa; }
+        
+        .link-info { flex: 1; }
+        .link-url { 
+            font-weight: 500; color: #2c3e50; text-decoration: none;
+            word-break: break-all; margin-bottom: 5px; display: block;
+        }
+        .link-url:hover { color: #3498db; }
+        .link-meta { 
+            font-size: 12px; color: #666; 
+            display: flex; gap: 15px; flex-wrap: wrap;
+        }
+        .link-tweet { 
+            margin-top: 8px; font-size: 14px; color: #555;
+            background: #f8f9fa; padding: 10px; border-radius: 4px;
+            font-style: italic; border-left: 3px solid #3498db;
+        }
+        .severity-badge {
+            padding: 4px 12px; border-radius: 12px; font-size: 11px;
+            font-weight: bold; color: white; text-transform: uppercase;
+            white-space: nowrap; margin-left: 15px;
+        }
+        .severity-low { background: #27ae60; }
+        .severity-medium { background: #f39c12; }
+        .severity-high { background: #e74c3c; }
+        
+        .loading, .error { 
+            text-align: center; padding: 40px; color: #666; 
+        }
+        .error { color: #e74c3c; }
+        
+        .pagination {
+            text-align: center; padding: 20px;
+            display: flex; justify-content: center; gap: 10px;
+        }
+        .pagination button {
+            padding: 8px 12px; border: 1px solid #ddd; background: white;
+            cursor: pointer; border-radius: 4px;
+        }
+        .pagination button:hover { background: #f8f9fa; }
+        .pagination button.active { background: #3498db; color: white; border-color: #3498db; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        footer { 
+            margin-top: 2rem; padding: 20px; background: white; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #666; font-size: 0.85rem;
+            text-align: center;
+        }
     </style>
-  </head>
-  <body>
-    <header>
-      <h1>AfD Monitoring – Gesammelte Links</h1>
-      <p class="note">Diese Seite zeigt die zuletzt gespeicherten Quellenlinks (dedupliziert) aus der gemeinsamen MongoDB.</p>
-    </header>
-
-    <section id="content">
-      <p class="note">Lade Daten…</p>
-    </section>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AfD Twitter Bot - Zentrale Link Collection</h1>
+        
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="total-links">-</div>
+                <div class="stat-label">Gesammelte Links</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="active-bots">-</div>
+                <div class="stat-label">Aktive Bots</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avg-severity">-</div>
+                <div class="stat-label">Durchschn. Severity</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="today-links">-</div>
+                <div class="stat-label">Heute Hinzugefügt</div>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="filters">
+            <input type="text" id="search-url" placeholder="URL durchsuchen...">
+            <select id="severity-filter">
+                <option value="">Alle Severity Scores</option>
+                <option value="high">Hoch (7-10)</option>
+                <option value="medium">Mittel (4-6)</option>
+                <option value="low">Niedrig (0-3)</option>
+            </select>
+            <input type="date" id="date-from" title="Von Datum">
+            <input type="date" id="date-to" title="Bis Datum">
+            <button onclick="loadLinks()">Filtern</button>
+            <button onclick="clearFilters()">Zurücksetzen</button>
+        </div>
+        
+        <!-- Links List -->
+        <div class="links-container">
+            <div class="loading" id="loading">Lade Daten...</div>
+            <div id="links-list" style="display: none;"></div>
+            <div id="error" class="error" style="display: none;"></div>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="pagination" id="pagination" style="display: none;"></div>
+    </div>
 
     <footer>
-      <p>Hinweis: Die Inhalte stammen aus öffentlichen Quellen. Automatisierte Analysen können Kontext übersehen.</p>
+        <p><strong>Hinweis:</strong> Diese Seite zeigt von Bot-Instanzen gesammelte Links aus öffentlichen Twitter-Quellen. Alle Daten werden zentral gespeichert und dedupliziert. Automatisierte Analysen können Kontext übersehen.</p>
     </footer>
 
     <script>
-      async function loadLinks() {
-        const container = document.getElementById('content');
-        try {
-          const res = await fetch('/api/links');
-          const data = await res.json();
-          const links = data.links || [];
-
-          if (!links.length) {
-            container.innerHTML = '<p class="note">Keine Einträge gefunden.</p>' + (data.note ? `<p class="note">${data.note}</p>` : '');
-            return;
-          }
-
-          const list = document.createElement('div');
-          list.className = 'list';
-
-          links.forEach((entry) => {
-            const item = document.createElement('div');
-            item.className = 'item';
-
-            const a = document.createElement('a');
-            a.href = entry.url;
-            a.textContent = entry.url;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            a.className = 'url';
-
-            const meta = document.createElement('div');
-            const ts = entry.updated_at || entry.created_at || null;
-            const dateStr = ts ? new Date(ts).toLocaleString() : '';
-            const cats = Array.isArray(entry.categories) ? entry.categories.join(', ') : '';
-            meta.className = 'meta';
-            meta.textContent = `${dateStr}${cats ? ' · Kategorien: ' + cats : ''}${entry.severity_score != null ? ' · Score: ' + entry.severity_score : ''}`;
-
-            const text = document.createElement('div');
-            text.className = 'text';
-            text.textContent = entry.tweet_text || '';
-
-            item.appendChild(a);
-            item.appendChild(meta);
-            if (text.textContent.trim()) item.appendChild(text);
-            list.appendChild(item);
-          });
-
-          container.innerHTML = '';
-          container.appendChild(list);
-        } catch (e) {
-          console.error(e);
-          container.innerHTML = '<p class="note">Fehler beim Laden der Daten.</p>';
+        let currentPage = 1;
+        const itemsPerPage = 20;
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                if (!response.ok) throw new Error('Stats nicht verfügbar');
+                const stats = await response.json();
+                
+                document.getElementById('total-links').textContent = stats.totalLinks || 0;
+                document.getElementById('active-bots').textContent = stats.activeBots || 0;
+                document.getElementById('avg-severity').textContent = 
+                    stats.avgSeverity ? stats.avgSeverity.toFixed(1) : '0.0';
+                document.getElementById('today-links').textContent = stats.todayLinks || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                // Set defaults if stats API doesn't exist yet
+                document.getElementById('total-links').textContent = '?';
+                document.getElementById('active-bots').textContent = '?';
+                document.getElementById('avg-severity').textContent = '?';
+                document.getElementById('today-links').textContent = '?';
+            }
         }
-      }
-      loadLinks();
+        
+        async function loadLinks(page = 1) {
+            const loading = document.getElementById('loading');
+            const linksList = document.getElementById('links-list');
+            const errorDiv = document.getElementById('error');
+            const pagination = document.getElementById('pagination');
+            
+            loading.style.display = 'block';
+            linksList.style.display = 'none';
+            errorDiv.style.display = 'none';
+            pagination.style.display = 'none';
+            
+            try {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    limit: itemsPerPage.toString()
+                });
+                
+                // Add filters
+                const searchUrl = document.getElementById('search-url').value.trim();
+                if (searchUrl) params.set('search', searchUrl);
+                
+                const severityFilter = document.getElementById('severity-filter').value;
+                if (severityFilter) params.set('severity', severityFilter);
+                
+                const dateFrom = document.getElementById('date-from').value;
+                if (dateFrom) params.set('dateFrom', dateFrom);
+                
+                const dateTo = document.getElementById('date-to').value;
+                if (dateTo) params.set('dateTo', dateTo);
+                
+                const response = await fetch(`/api/links?${params}`);
+                const data = await response.json();
+                
+                if (!data.success && !data.links) {
+                    // Fallback for existing API format
+                    const links = data.links || [];
+                    renderLinks(links);
+                    loading.style.display = 'none';
+                    linksList.style.display = 'block';
+                    return;
+                }
+                
+                renderLinks(data.links || []);
+                if (data.pagination) {
+                    renderPagination(data.pagination);
+                    pagination.style.display = 'flex';
+                }
+                
+                currentPage = page;
+                
+                loading.style.display = 'none';
+                linksList.style.display = 'block';
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                errorDiv.textContent = `Fehler beim Laden: ${error.message}`;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function renderLinks(links) {
+            const container = document.getElementById('links-list');
+            
+            if (!links || links.length === 0) {
+                container.innerHTML = '<div class="loading">Keine Links gefunden.</div>';
+                return;
+            }
+            
+            container.innerHTML = links.map(link => {
+                const severity = link.severity_score || 0;
+                const severityClass = severity >= 7 ? 'severity-high' : 
+                                   severity >= 4 ? 'severity-medium' : 'severity-low';
+                const severityLabel = severity >= 7 ? 'Hoch' : 
+                                    severity >= 4 ? 'Mittel' : 'Niedrig';
+                
+                const createdAt = new Date(link.created_at || link.updated_at).toLocaleDateString('de-DE');
+                const categories = (link.categories || []).join(', ');
+                const sourceAccount = link.source_account || 'Unbekannt';
+                const botCount = (link.seen_by_bots || []).length || 1;
+                
+                const tweetText = link.tweet_text ? `<div class="link-tweet">"${link.tweet_text}"</div>` : '';
+                
+                return `
+                    <div class="link-item">
+                        <div class="link-info">
+                            <a href="${link.url}" target="_blank" class="link-url">${link.url}</a>
+                            <div class="link-meta">
+                                <span>📅 ${createdAt}</span>
+                                <span>📊 Score: ${severity.toFixed(1)}</span>
+                                <span>👤 @${sourceAccount}</span>
+                                <span>🤖 ${botCount} Bot(s)</span>
+                                ${categories ? `<span>🏷️ ${categories}</span>` : ''}
+                            </div>
+                            ${tweetText}
+                        </div>
+                        <div class="severity-badge ${severityClass}">${severityLabel}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderPagination(pagination) {
+            const container = document.getElementById('pagination');
+            
+            if (!pagination) return;
+            
+            const { currentPage, totalPages, hasPrev, hasNext } = pagination;
+            
+            let html = '';
+            
+            // Previous button
+            html += `<button ${!hasPrev ? 'disabled' : ''} onclick="loadLinks(${currentPage - 1})">« Vorherige</button>`;
+            
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (startPage > 1) {
+                html += `<button onclick="loadLinks(1)">1</button>`;
+                if (startPage > 2) html += '<span>...</span>';
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="loadLinks(${i})">${i}</button>`;
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += '<span>...</span>';
+                html += `<button onclick="loadLinks(${totalPages})">${totalPages}</button>`;
+            }
+            
+            // Next button
+            html += `<button ${!hasNext ? 'disabled' : ''} onclick="loadLinks(${currentPage + 1})">Nächste »</button>`;
+            
+            container.innerHTML = html;
+        }
+        
+        function clearFilters() {
+            document.getElementById('search-url').value = '';
+            document.getElementById('severity-filter').value = '';
+            document.getElementById('date-from').value = '';
+            document.getElementById('date-to').value = '';
+            loadLinks(1);
+        }
+        
+        // Initialize
+        loadStats();
+        loadLinks(1);
+        
+        // Refresh stats every 5 minutes
+        setInterval(loadStats, 300000);
     </script>
-  </body>
+</body>
 </html>
