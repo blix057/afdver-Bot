@@ -20,8 +20,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ links: [], note: "MONGODB_URI nicht gesetzt" });
     }
 
-    const db = mongoClient.db("afdver_bot");
-    const col = db.collection("links");
+    const dbName = process.env.MONGODB_DB || "afdver_bot";
+    const colName = process.env.MONGODB_COLLECTION || "links";
+    const db = mongoClient.db(dbName);
+    const col = db.collection(colName);
 
     // Find newest 500 links
     const cursor = col.find({}, { projection: { _id: 0 } }).sort({ updated_at: -1 }).limit(500);

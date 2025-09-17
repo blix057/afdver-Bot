@@ -74,6 +74,9 @@ TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret_here
 # MongoDB (optional, empfohlen für gemeinsame Deduplizierung)
 # Beispiel (MongoDB Atlas): mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=majority
 MONGODB_URI=your_mongodb_connection_uri_here
+# Optional: Datenbank- und Collection-Namen
+MONGODB_DB=afdver_bot
+MONGODB_COLLECTION=links
 ```
 
 ## Nutzung
@@ -86,6 +89,8 @@ MongoDB-URI finden (MongoDB Atlas):
 5. Diese URI als MONGODB_URI in `.env` bzw. in den Vercel-Umgebungsvariablen hinterlegen
 
 MongoDB-URI lokal (Community Server):
+- Datenbankname kann per `MONGODB_DB` gesetzt werden (z. B. `afdverBot`)
+- Collection-Name per `MONGODB_COLLECTION` (Standard: `links`)
 - Standard: mongodb://localhost:27017
 - Dann ggf. `afdver_bot`-Datenbank wird automatisch verwendet
 

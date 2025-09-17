@@ -17,11 +17,15 @@ class LinkStore:
     Each link is stored once with metadata; subsequent inserts are no-ops.
     """
 
-    def __init__(self, mongo_uri: Optional[str] = None, db_name: str = "afdver_bot", collection: str = "links"):
+    def __init__(self, mongo_uri: Optional[str] = None, db_name: Optional[str] = None, collection: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
         self.mongo_uri = mongo_uri or os.getenv("MONGODB_URI")
         if not self.mongo_uri:
             raise ValueError("Missing MongoDB connection string. Set MONGODB_URI in .env")
+
+        # Allow DB and collection to be configured via env vars
+        db_name = db_name or os.getenv("MONGODB_DB", "afdver_bot")
+        collection = collection or os.getenv("MONGODB_COLLECTION", "links")
 
         self.client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
         try:
