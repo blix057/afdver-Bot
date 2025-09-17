@@ -1,5 +1,7 @@
 import logging
 import time
+import os
+import requests
 from typing import List, Dict
 from datetime import datetime
 from twitter_client import TwitterClient
@@ -68,11 +70,9 @@ class TweetCollector:
                     
                     all_flagged_tweets.extend(flagged_tweets)
                     
-                    # Store links in DB (de-duplicated across users)
-                    if self.link_store:
-                        new_links = 0
-                        for ta in flagged_tweets:
-                            new_links += self.link_store.store_from_tweet_analysis(ta)
+                    # Store links (DB or HTTP ingest)
+                    new_links = self._store_links(flagged_tweets)
+                    if new_links is not None:
                         self.logger.info(f"Stored {new_links} new links from @{account}")
                 else:
                     self.logger.info(f"No problematic tweets found for @{account}")
@@ -144,11 +144,9 @@ class TweetCollector:
                     
                     all_flagged_tweets.extend(flagged_tweets)
                     
-                    # Store links in DB (de-duplicated across users)
-                    if self.link_store:
-                        new_links = 0
-                        for ta in flagged_tweets:
-                            new_links += self.link_store.store_from_tweet_analysis(ta)
+                    # Store links (DB or HTTP ingest)
+                    new_links = self._store_links(flagged_tweets)
+                    if new_links is not None:
                         self.logger.info(f"Stored {new_links} new links for keyword '{keyword}'")
                 
                 successful_keywords += 1
@@ -240,3 +238,50 @@ class TweetCollector:
             self.logger.info(f"Removed {removed_count} duplicate tweets")
         
         return deduplicated
+
+    def _store_links(self, flagged_tweets: List[Dict]) -> int:
+        """
+        Store links either directly to MongoDB (if available) or via HTTP ingest endpoint.
+        Returns number of new links inserted, or None if no storage configured.
+        """
+        # Prefer direct DB if available
+        if getattr(self, 'link_store', None):
+            try:
+                new_links = 0
+                for ta in flagged_tweets:
+                    new_links += self.link_store.store_from_tweet_analysis(ta)
+                return new_links
+            except Exception as e:
+                self.logger.warning(f"Direct DB storage failed, will try HTTP ingest if configured: {e}")
+        
+        # HTTP ingest fallback
+        ingest_url = os.getenv('INGEST_URL')
+        ingest_token = os.getenv('INGEST_TOKEN')
+        if ingest_url and ingest_token:
+            inserted = 0
+            headers = {'Authorization': f'Bearer {ingest_token}', 'Content-Type': 'application/json'}
+            for ta in flagged_tweets:
+                # Extract URLs similarly to DB layer to avoid duplication
+                try:
+                    payload = {
+                        'tweet_id': ta.get('tweet_id'),
+                        'author_id': ta.get('author_id'),
+                        'created_at': ta.get('created_at').isoformat() if hasattr(ta.get('created_at'), 'isoformat') else ta.get('created_at'),
+                        'severity_score': ta.get('severity_score'),
+                        'categories': ta.get('categories', []),
+                        'matched_keywords': ta.get('matched_keywords', []),
+                        'source_account': ta.get('source_account'),
+                        'collection_method': ta.get('collection_method'),
+                        'tweet_text': ta.get('text', ''),
+                    }
+                    r = requests.post(ingest_url, headers=headers, json=payload, timeout=10)
+                    if r.status_code == 200:
+                        inserted += r.json().get('inserted', 0)
+                    else:
+                        self.logger.debug(f"Ingest failed with status {r.status_code}: {r.text}")
+                except Exception as e:
+                    self.logger.debug(f"Ingest error: {e}")
+            return inserted
+        
+        self.logger.warning("No storage configured (no MongoDB and no INGEST_URL). Links not persisted.")
+        return None
