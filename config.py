@@ -120,5 +120,7 @@ SEARCH_SETTINGS = {
     "max_tweets_per_account": 100,
     "days_back": 30,
     "language": "de",
-    "result_type": "recent"
+    "result_type": "recent",
+    # Interval for watch mode (seconds). 30 is possible, but default longer to save credits
+    "poll_interval_seconds": 600
 }

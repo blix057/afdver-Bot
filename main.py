@@ -82,6 +82,10 @@ def main():
                        help='Enable verbose logging')
     parser.add_argument('--dry-run', action='store_true',
                        help='Perform analysis without generating report')
+    parser.add_argument('--watch', action='store_true',
+                       help='Continuously run collection at a configurable interval')
+    parser.add_argument('--poll-interval', type=int, default=None,
+                       help='Polling interval in seconds for --watch (default from config)')
     
     args = parser.parse_args()
     
@@ -134,46 +138,58 @@ def main():
             
         else:
             logger.info("Running full collection (accounts + keywords)")
-            results = collector.full_collection()
-        
-        # Log results summary
-        flagged_count = len(results['flagged_tweets'])
-        logger.info(f"Collection complete: {flagged_count} tweets flagged")
-        
-        if flagged_count > 0:
-            max_severity = max(tweet['severity_score'] for tweet in results['flagged_tweets'])
-            avg_severity = sum(tweet['severity_score'] for tweet in results['flagged_tweets']) / flagged_count
-            logger.info(f"Severity scores - Max: {max_severity:.2f}, Avg: {avg_severity:.2f}")
-        
-        # Generate report unless dry-run
-        if not args.dry_run:
-            # Create output directory
-            output_dir = Path(args.output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Generate report filename
-            timestamp = results['collection_timestamp'].strftime('%Y%m%d_%H%M%S')
-            report_filename = f"afd_analysis_{timestamp}.txt"
-            report_path = output_dir / report_filename
-            
-            # Generate report
-            logger.info(f"Generating report: {report_path}")
-            report_generator = ReportGenerator()
-            report_generator.generate_report(results, str(report_path))
-            
-            print(f"\n{'='*60}")
-            print(f"ANALYSIS COMPLETE")
-            print(f"{'='*60}")
-            print(f"Flagged tweets: {flagged_count}")
-            if flagged_count > 0:
-                print(f"Max severity: {max_severity:.2f}/10")
-                print(f"Avg severity: {avg_severity:.2f}/10")
-            print(f"Report saved: {report_path}")
-            print(f"{'='*60}")
-            
-        else:
-            logger.info("Dry-run complete - no report generated")
-            print(f"\nDry-run results: {flagged_count} tweets flagged")
+            # Watch mode loop
+            from config import SEARCH_SETTINGS
+            poll_interval = args.poll_interval if args.poll_interval is not None else SEARCH_SETTINGS.get('poll_interval_seconds', 600)
+
+            def run_once_and_report():
+                res = collector.full_collection()
+                fc = len(res['flagged_tweets'])
+                logger.info(f"Collection complete: {fc} tweets flagged")
+                if fc > 0:
+                    mx = max(tweet['severity_score'] for tweet in res['flagged_tweets'])
+                    av = sum(tweet['severity_score'] for tweet in res['flagged_tweets']) / fc
+                    logger.info(f"Severity scores - Max: {mx:.2f}, Avg: {av:.2f}")
+                if not args.dry_run:
+                    output_dir = Path(args.output_dir)
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    timestamp = res['collection_timestamp'].strftime('%Y%m%d_%H%M%S')
+                    report_filename = f"afd_analysis_{timestamp}.txt"
+                    report_path = output_dir / report_filename
+                    logger.info(f"Generating report: {report_path}")
+                    report_generator = ReportGenerator()
+                    report_generator.generate_report(res, str(report_path))
+                    print(f"\n{'='*60}")
+                    print(f"ANALYSIS COMPLETE")
+                    print(f"{'='*60}")
+                    print(f"Flagged tweets: {fc}")
+                    if fc > 0:
+                        print(f"Max severity: {mx:.2f}/10")
+                        print(f"Avg severity: {av:.2f}/10")
+                    print(f"Report saved: {report_path}")
+                    print(f"{'='*60}")
+                else:
+                    logger.info("Dry-run complete - no report generated")
+                    print(f"\nDry-run results: {fc} tweets flagged")
+                return res
+
+            if args.watch:
+                logger.info(f"Watch mode enabled. Poll interval: {poll_interval}s")
+                try:
+                    while True:
+                        run_once_and_report()
+                        logger.info(f"Sleeping for {poll_interval}s before next poll...")
+                        time.sleep(poll_interval)
+                except KeyboardInterrupt:
+                    logger.info("Watch mode interrupted by user")
+                    print("\nWatch mode stopped by user")
+                except Exception as e:
+                    logger.error(f"Error in watch loop: {e}", exc_info=True)
+                    print(f"\nError in watch loop: {e}")
+                    sys.exit(1)
+            else:
+                # Single run
+                run_once_and_report()
     
     except KeyboardInterrupt:
         logger.info("Bot interrupted by user")
