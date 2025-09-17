@@ -1,0 +1,13 @@
+{
+  "name": "afdver-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Einfache Webansicht für AfD-Monitoring-Bot (Vercel)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mongodb": "^6.8.0"
+  }
+}

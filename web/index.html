@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AfD Monitoring – Links Übersicht</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; color: #111; }
+      header { margin-bottom: 1.5rem; }
+      .note { color: #555; font-size: 0.95rem; }
+      .list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      .item { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+      .url { font-weight: 600; word-break: break-all; }
+      .meta { color: #555; font-size: 0.9rem; margin-top: 6px; }
+      .text { margin-top: 8px; white-space: pre-wrap; }
+      footer { margin-top: 2rem; color: #666; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>AfD Monitoring – Gesammelte Links</h1>
+      <p class="note">Diese Seite zeigt die zuletzt gespeicherten Quellenlinks (dedupliziert) aus der gemeinsamen MongoDB.</p>
+    </header>
+
+    <section id="content">
+      <p class="note">Lade Daten…</p>
+    </section>
+
+    <footer>
+      <p>Hinweis: Die Inhalte stammen aus öffentlichen Quellen. Automatisierte Analysen können Kontext übersehen.</p>
+    </footer>
+
+    <script>
+      async function loadLinks() {
+        const container = document.getElementById('content');
+        try {
+          const res = await fetch('/api/links');
+          const data = await res.json();
+          const links = data.links || [];
+
+          if (!links.length) {
+            container.innerHTML = '<p class="note">Keine Einträge gefunden.</p>' + (data.note ? `<p class="note">${data.note}</p>` : '');
+            return;
+          }
+
+          const list = document.createElement('div');
+          list.className = 'list';
+
+          links.forEach((entry) => {
+            const item = document.createElement('div');
+            item.className = 'item';
+
+            const a = document.createElement('a');
+            a.href = entry.url;
+            a.textContent = entry.url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.className = 'url';
+
+            const meta = document.createElement('div');
+            const ts = entry.updated_at || entry.created_at || null;
+            const dateStr = ts ? new Date(ts).toLocaleString() : '';
+            const cats = Array.isArray(entry.categories) ? entry.categories.join(', ') : '';
+            meta.className = 'meta';
+            meta.textContent = `${dateStr}${cats ? ' · Kategorien: ' + cats : ''}${entry.severity_score != null ? ' · Score: ' + entry.severity_score : ''}`;
+
+            const text = document.createElement('div');
+            text.className = 'text';
+            text.textContent = entry.tweet_text || '';
+
+            item.appendChild(a);
+            item.appendChild(meta);
+            if (text.textContent.trim()) item.appendChild(text);
+            list.appendChild(item);
+          });
+
+          container.innerHTML = '';
+          container.appendChild(list);
+        } catch (e) {
+          console.error(e);
+          container.innerHTML = '<p class="note">Fehler beim Laden der Daten.</p>';
+        }
+      }
+      loadLinks();
+    </script>
+  </body>
+</html>
